@@ -59,7 +59,7 @@ class data_2_cluster(object):
         
     def plot(self):
         #This function plots the object attributes according to the user selection
-        selections = input('What would you like to plot?\nChoose from: X,X_norm\n')
+        selections = input('What would you like to plot?\nChoose from: X,X_norm,X_shifted\n')
         selections = selections.split(',')
         if 'X' in selections:
             plt.figure(1)
@@ -71,3 +71,39 @@ class data_2_cluster(object):
             print('Plotting the normalized matrix X:\n')
             for column in self.X_norm.T:
                 plt.plot(self.voltages_a,self.X_norm)
+        if 'X_shifted' in selections:
+            plt.figure(3)
+            print('Plotting the normalized shifted matrix X:\n')
+            for column in self.X_shifted.T:
+                plt.plot(self.voltages_a,self.X_shifted)
+    
+    def pca(self, norm=True, shiftData=True):
+        #this function calculaation the principal components of the data
+        
+        if norm:
+            data = self.X_norm
+        else:
+            data = self.X
+        
+        [M,N] = data.shape
+        #first, substract the mean of each dimension (=sample type)
+        if shiftData:
+            data_mean = np.mean(data,1)
+            data = data - np.tile(data_mean, (N,1)).T
+            self.X_shifted = data
+        #calculate the coveriance matrix
+        self.data_covariance = (1 / (N-1)) * (np.matmul(data , data.T))
+        #find the eigenvalues and eigenvectors
+        #(using eigh function which assumes a real and symettric matrix)
+        [self.v,self.PCs] = np.linalg.eigh(self.data_covariance)
+        #normalizing the eigenvmaxectors to be in precntage
+        self.v = self.v / np.sum(self.v)
+        #sort the values in decreasing order
+        sorted_indexexs = np.argsort(-self.v) #get the indexes first
+        self.v   = self.v[sorted_indexexs]
+        self.PCs[:] = self.PCs[:,sorted_indexexs] 
+        #project the data set on the PCs space
+        self.samples_PC_space = np.matmul(self.PCs.T , data)
+        print('Finished computing PCA\n========================\n')
+        print('Variance of the first 5 principal components:\n')
+        print(self.v[0:4])
