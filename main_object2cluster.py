@@ -59,7 +59,7 @@ class data_2_cluster(object):
         
     def plot(self):
         #This function plots the object attributes according to the user selection
-        selections = input('What would you like to plot?\nChoose from: X,X_norm,X_shifted\n')
+        selections = input('What would you like to plot?\nChoose from: X,X_norm,X_shifted,X_histograms\n')
         selections = selections.split(',')
         if 'X' in selections:
             plt.figure(1)
@@ -76,8 +76,13 @@ class data_2_cluster(object):
             print('Plotting the normalized shifted matrix X:\n')
             for column in self.X_shifted.T:
                 plt.plot(self.voltages_a,self.X_shifted)
+        if 'X_histograms' in selections:
+            plt.figure(4)
+            print('Plotting the histograms of the data')
+            for column in self.X_hist.T:
+                plt.plot(self.bins, column)
     
-    def pca(self, norm=True, shiftData=True):
+    def pca(self, norm=True, shiftData=False):
         #this function calculaation the principal components of the data
         
         if norm:
@@ -86,15 +91,15 @@ class data_2_cluster(object):
             data = self.X
         
         [M,N] = data.shape
-        #first, substract the mean of each dimension (=sample type)
+        #If needed, substract the mean of each dimension (=sample type)
         if shiftData:
             data_mean = np.mean(data,1)
             data = data - np.tile(data_mean, (N,1)).T
             self.X_shifted = data
         #calculate the coveriance matrix
-        self.data_covariance = (1 / (N-1)) * (np.matmul(data , data.T))
+        self.data_covariance = np.cov(data)
         #find the eigenvalues and eigenvectors
-        #(using eigh function which assumes a real and symettric matrix)
+        #(using np.linalg.eigh function which assumes a real and symettric matrix)
         [self.v,self.PCs] = np.linalg.eigh(self.data_covariance)
         #normalizing the eigenvmaxectors to be in precntage
         self.v = self.v / np.sum(self.v)
@@ -107,3 +112,30 @@ class data_2_cluster(object):
         print('Finished computing PCA\n========================\n')
         print('Variance of the first 5 principal components:\n')
         print(self.v[0:4])
+    
+    def create_hist(self, norm=True, bns_ratio=8):
+        #This function runs over each curve (column in the data)
+        #and computes a histogram
+        
+        if norm:
+            data = self.X_norm
+        else:
+            data = self.X
+        
+        step = (np.max(data)-np.min(data))/(len(data[:,0]) / bns_ratio)
+        bns = np.arange(np.min(data), np.max(data), step)
+        #Calculate the histogram
+        X_hist = []
+        for column in data.T:
+            hist, bin_edges = np.histogram(column, bins=bns) #the number of bins is the legnth of the vector divided by bns
+            X_hist.append(hist)
+        self.X_hist = np.transpose(np.array(X_hist)) #convert to a numpy array
+        
+        #also, create a vector with the sum of all histograms
+        self.X_allHistograms = np.histogram(data, bins=bns)
+        
+        self.bins = bns
+        
+        print('Finished computing the histogram\n')
+        print('Bins range:')
+        print([np.min(data),np.max(data)])
