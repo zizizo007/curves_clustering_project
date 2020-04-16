@@ -30,7 +30,7 @@ class data_2_cluster(object):
             
             self.voltages_a = []    
             for voltage in np.arange(-2,2.01,0.01):
-                self.voltages_a.append(str(round(voltage,2)))
+                self.voltages_a.append(round(voltage,2))
             
             for root, dirs, files in os.walk(path):
                 for file in files:
@@ -65,17 +65,17 @@ class data_2_cluster(object):
             plt.figure(1)
             print('Plotting the matrix X:\n')
             for column in self.X.T:
-                plt.plot(self.voltages_a,self.X)
+                plt.plot(self.voltages_a,column)
         if 'X_norm' in selections:
             plt.figure(2)
             print('Plotting the normalized matrix X:\n')
             for column in self.X_norm.T:
-                plt.plot(self.voltages_a,self.X_norm)
+                plt.plot(self.voltages_a,column)
         if 'X_shifted' in selections:
             plt.figure(3)
             print('Plotting the normalized shifted matrix X:\n')
             for column in self.X_shifted.T:
-                plt.plot(self.voltages_a,self.X_shifted)
+                plt.plot(self.voltages_a,column)
         if 'X_histograms' in selections:
             plt.figure(4)
             print('Plotting the histograms of the data')
@@ -97,7 +97,7 @@ class data_2_cluster(object):
             data = data - np.tile(data_mean, (N,1)).T
             self.X_shifted = data
         #calculate the coveriance matrix
-        self.data_covariance = np.cov(data)
+        self.data_covariance = np.corrcoef(data)
         #find the eigenvalues and eigenvectors
         #(using np.linalg.eigh function which assumes a real and symettric matrix)
         [self.v,self.PCs] = np.linalg.eigh(self.data_covariance)
@@ -122,19 +122,16 @@ class data_2_cluster(object):
         else:
             data = self.X
         
-        step = (np.max(data)-np.min(data))/(len(data[:,0]) / bns_ratio)
-        bns = np.arange(np.min(data), np.max(data), step)
+        #first, create a vector with the sum of all histograms
+        #then, use the bins for the indicidual curves
+        self.X_allHistograms, bns = np.histogram(data, bins='fd')
+        
         #Calculate the histogram
         X_hist = []
         for column in data.T:
             hist, bin_edges = np.histogram(column, bins=bns) #the number of bins is the legnth of the vector divided by bns
             X_hist.append(hist)
         self.X_hist = np.transpose(np.array(X_hist)) #convert to a numpy array
-        
-        #also, create a vector with the sum of all histograms
-        self.X_allHistograms = np.histogram(data, bins=bns)
-        
-        self.bins = bns
         
         print('Finished computing the histogram\n')
         print('Bins range:')
