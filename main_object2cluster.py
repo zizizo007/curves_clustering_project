@@ -192,7 +192,7 @@ class data_2_cluster(object):
         
         #first, create a vector with the sum of all histograms
         #then, use the bins for the indicidual curves
-        self.X_allHistograms, bns = np.histogram(data, bins='auto')
+        self.X_allHistograms, bns = np.histogram(data, bins=len(data[:,0])*20)
         
         #Calculate the histograms
         X_hist = []
