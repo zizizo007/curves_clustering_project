@@ -16,7 +16,7 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import KernelDensity
 
 import seaborn as sns
-sns.set_context("paper")
+sns.set_context("talk")
 sns.set_style("white")
 
 class data_2_cluster(object):
@@ -67,6 +67,22 @@ class data_2_cluster(object):
         
     def plot(self):
         #This function plots the object attributes according to the user selection
+        
+        def plot_pca(xd, PC_count, PCs, samples_PC_space, v, xlabel, ylabel):
+            ax1 = plt.subplot2grid((2,1), (0,0))
+            ax2 = plt.subplot2grid((2,1), (1,0))
+                
+            for n in range(PC_count):
+                ax1.plot(xd, PCs[:,n], label=n)
+                ax1.set_xlabel(xlabel)
+                ax1.set_ylabel(ylabel)
+                ax1.legend(loc=0)
+                ax2.scatter(samples_PC_space[0,:], samples_PC_space[1,:] )
+                ax2.set_xlabel('PC #1 (' + str(round(v[0]*100,2)) + ' %)')
+                ax2.set_ylabel('PC #2 (' + str(round(v[1]*100,2)) + ' %)')
+                ax1.set_title('PCA Results - ' + self.name + ' data') 
+                plt.tight_layout()
+        
         selections = input('What would you like to plot?\nChoose from: X,X_norm,X_shifted,X_histograms,PCA\n')
         selections = selections.split(',')
         if 'X' in selections:
@@ -114,55 +130,20 @@ class data_2_cluster(object):
             f.suptitle('Data Histograms & KDE - ' + self.name, y=0.98)
             f.subplots_adjust(wspace=None, hspace=None, top=0.92)
         if 'PCA' in selections:
-            typ = input('Which PCA would you like to plot?\nChoose from: data, data_histograms, data_KDE\n')
+            typ = input('Which PCA would you like to plot?\nChoose from: data, data_norm, data_histograms, data_KDE\n')
             typ = typ.split(',')
             PC_count = input('How many PCs would you like to plot?\n')
             PC_count = int(PC_count)
             plt.figure(5)
             if 'data' in typ: 
-                ax1 = plt.subplot2grid((2,1), (0,0))
-                ax2 = plt.subplot2grid((2,1), (1,0))
-                
-                for n in range(PC_count):
-                    ax1.plot(self.voltages_a, self.PCs[:,n], label=n)
-                ax1.set_xlabel('Voltage [V]')
-                ax1.set_ylabel('Current [?]')
-                ax1.legend(loc=0)
-                ax2.scatter(self.samples_PC_space[0,:], self.samples_PC_space[1,:] )
-                ax2.set_xlabel('PC #1 (' + str(round(self.v[0]*100,2)) + ' %)')
-                ax2.set_ylabel('PC #2 (' + str(round(self.v[1]*100,2)) + ' %)')
-                ax1.set_title('PCA Results - ' + self.name + ' data') 
-                plt.tight_layout()     
+                plot_pca(self.voltages_a, PC_count, self.X_PCs, self.X_samples_PC_space, self.X_v, 'Voltage [V]', 'Current')
+            if 'data_norm' in typ:
+                plot_pca(self.voltages_a, PC_count, self.X_norm_PCs, self.X_norm_samples_PC_space, self.X_norm_v, 'Voltage [V]', 'Current')
             if 'data_histograms' in typ:
-                ax1 = plt.subplot2grid((2,1), (0,0))
-                ax2 = plt.subplot2grid((2,1), (1,0))
-                
-                for n in range(PC_count):
-                    ax1.plot(self.bins, self.PCs[:,n], label=n)
-                ax1.set_xlabel('Bin #')
-                ax1.set_ylabel('[?]')
-                ax1.legend(loc=0)
-                ax2.scatter(self.samples_PC_space[0,:], self.samples_PC_space[1,:] )
-                ax2.set_xlabel('PC #1 (' + str(round(self.v[0]*100,2)) + ' %)')
-                ax2.set_ylabel('PC #2 (' + str(round(self.v[1]*100,2)) + ' %)')
-                ax1.set_title('PCA Results - ' + self.name + ' data_histograms') 
-                plt.tight_layout() 
+                plot_pca(self.bins, PC_count, self.X_hist_PCs, self.X_hist_samples_PC_space, self.X_hist_v, 'Normalized Current', 'Probability Density')
             if 'data_KDE' in typ:
-                ax1 = plt.subplot2grid((2,1), (0,0))
-                ax2 = plt.subplot2grid((2,1), (1,0))
-                
-                for n in range(PC_count):
-                    ax1.plot(self.bins_KDE, self.PCs[:,n], label=n)
-                ax1.set_xlabel('Bin #')
-                ax1.set_ylabel('[?]')
-                ax1.legend(loc=0)
-                ax2.scatter(self.samples_PC_space[0,:], self.samples_PC_space[1,:] )
-                ax2.set_xlabel('PC #1 (' + str(round(self.v[0]*100,2)) + ' %)')
-                ax2.set_ylabel('PC #2 (' + str(round(self.v[1]*100,2)) + ' %)')
-                ax1.set_title('PCA Results - ' + self.name + ' data_KDE') 
-                plt.tight_layout() 
+                plot_pca(self.bins_KDE, PC_count, self.X_KDE_PCs, self.X_KDE_samples_PC_space, self.X_KDE_v, 'Normalized Current', 'Probability Density')
             
-                
                                
     def pca(self, shiftData=False):
         #this function calculaation the principal components of the data
@@ -188,8 +169,10 @@ class data_2_cluster(object):
         # In order to avoid zero standard deviation check before if there are rows of zero
         if True in (data == 0).all(axis=1):
             data_covariance = np.cov(data)
+            print('Used covariance matrix\n')
         else: #if there are not rows of zero, than there will be no dividing by zero
             data_covariance = np.corrcoef(data)
+            print('Used correlation matrix\n')
         #find the eigenvalues and eigenvectors
         #(using np.linalg.eigh function which assumes a real and symettric matrix)
         [v,PCs] = np.linalg.eigh(data_covariance)
@@ -223,7 +206,7 @@ class data_2_cluster(object):
             self.X_KDE_samples_PC_space = samples_PC_space
         print('Finished computing PCA\n========================\n')
         print('Variance of the first 5 principal components:\n')
-        print(self.v[0:4])
+        print(v[0:4])
     
     def create_hist(self, norm=True):
         #This function runs over each curve (column in the data)
