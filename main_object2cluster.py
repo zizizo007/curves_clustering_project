@@ -144,7 +144,41 @@ class data_2_cluster(object):
             if 'data_KDE' in typ:
                 plot_pca(self.bins_KDE, PC_count, self.X_KDE_PCs, self.X_KDE_samples_PC_space, self.X_KDE_v, 'Normalized Current', 'Probability Density')
             
-                               
+    def create_diff(self, norm=True):
+        #this function calculates the numerical derivative of each curve (column) and creates a new matrix
+        
+        def diff(x,y, frc=0.3, itt=2 ):
+            #smoothing the data before doing a derivative
+            data_smoothed = lowess(y,x,  is_sorted=True, frac=frc, it=itt)
+            dydx = np.diff(data_smoothed[:,1])/np.diff(data_smoothed[:,0]) #numerical derivative
+            x = np.asarray(x)
+            xd = (x[1:]+x[:-1])/2 #the derivative gives the value at the midpoints
+            filtered = lowess(dydx,xd,  is_sorted=True, frac=0.05, it=2)
+            #smooth the data:
+            f = interp1d(xd, dydx, kind='cubic')
+            smooth_xnew = np.linspace(xd[0], xd[len(xd)-1], 4*len(xd))
+            return smooth_xnew, f(smooth_xnew), filtered[:,0], filtered[:,1], xd, dydx
+                
+        if norm:
+            data = self.X_norm
+        else:
+            data = self.X
+        
+        data_diff = []
+        for column in data.T:
+            #calculate the derivative for each curve (column)
+            smooth_xnew, f(smooth_xnew), filtered[:,0], filtered[:,1], xd, dydx = diff(self.voltages_a, data, frc=0.1, itt=2)
+            data_diff.append(filtered[:,1])
+        
+        data_diff = np.transpose(np.array(data_diff)) #convert to a numpy array
+        
+        if norm:
+            self.X_norm_diff = data_diff
+        else:
+            self.X = data_diff
+        
+        self.voltages_diff = filtered[:,0]
+        
     def pca(self, shiftData=False):
         #this function calculaation the principal components of the data
         
