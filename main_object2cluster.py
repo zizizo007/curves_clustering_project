@@ -177,7 +177,7 @@ class data_2_cluster(object):
         else:
             self.X = data_diff
         
-        self.voltages_diff = filtered[:,0]
+        self.voltages_diff = filtered[:,0]                                                      
         
     def pca(self, shiftData=False):
         #this function calculaation the principal components of the data
