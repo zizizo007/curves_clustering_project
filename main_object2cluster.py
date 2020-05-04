@@ -34,7 +34,7 @@ class data_2_cluster(object):
         self.X_norm = []
         
         #first, go over the source folder and load the data into a matrix X
-        if typ==1:
+        if typ==1: #I(V) curves
             
             self.voltages_a = []    
             for voltage in np.arange(-2,2.01,0.01):
@@ -64,7 +64,52 @@ class data_2_cluster(object):
             print('Object dimensions:\n')
             print('Number of sample types: ' + str(self.X.shape[0])+'\n')
             print('Number of samples taken: ' + str(self.X.shape[1])+'\n')
-        
+            
+            
+        if typ==2: #force-distance curves
+            
+            # a function to find the index of the element in an array with the nearest value to a value
+            def find_nearest(array, value):
+                array = np.asarray(array)
+                idx = (np.abs(array - value)).argmin()
+                return idx
+            
+            n=0
+            heads = ["Vertical Tip Position [m]", "Vertical Deflection [N]", "Height [m]", "Error Signal [V]", "Head Height [m]", "Head Height (measured & smoothed) [m]", "Head Height (measured) [m]", "Height (measured & smoothed) [m]", "Height (measured) [m]", "Lateral Deflection [m]", "Series Time [m]", "Segment Time [m]"]
+            self.X_force    = []
+            self.X_position = []
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    if os.path.splitext(file)[1] == '.txt':
+                        print('Working On: \n')
+                        print(os.path.join(root,file) + '\n')
+                        print(str(n+1) + ' Out of: ' + str(len(files)))
+                        df = pd.read_csv(os.path.join(root,file) , skiprows=16, names=heads, sep=' ')
+                        self.X_force.append(np.array(df["Vertical Deflection [N]"]))
+                        self.X_position.append(np.array(df["Head Height (measured & smoothed) [m]"]))
+                    n+=1
+            #convert the list to a numpy array
+            self.X_force = np.transpose(np.array(self.X_force))
+            self.X_position = np.transpose(np.array(self.X_position))
+            
+            #Callibrating the position such that all the samples will "talk in the same language"
+            self.x_modified = np.linspace(0 , 200e-9, 851)
+            
+            self.X_position_modified = self.X_position
+            j=1
+            for column in self.X_position_modified.T:
+                print('working on column ' + str(j))
+                j+=1
+                f = interp1d(column[0:1100], column[0:1100]) #linear interpolate the position upon itself
+                for i in self.x_modified: 
+                    interp_value = f(i) #check the interpolated value
+                    column[find_nearest(column, interp_value)] = interp_value #replace the value of the nearest value to the interp value
+            
+            print('New data_2_cluster object created\n=================================\n')
+            print('Object dimensions:\n')
+            print('Number of sample types: ' + str(self.X_force.shape[0])+'\n')
+            print('Number of samples taken: ' + str(self.X_force.shape[1])+'\n')
+                
     def plot(self):
         #This function plots the object attributes according to the user selection
         
