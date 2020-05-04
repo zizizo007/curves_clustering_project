@@ -143,7 +143,7 @@ class data_2_cluster(object):
                 plot_pca(self.bins, PC_count, self.X_hist_PCs, self.X_hist_samples_PC_space, self.X_hist_v, 'Normalized Current', 'Probability Density')
             if 'data_KDE' in typ:
                 plot_pca(self.bins_KDE, PC_count, self.X_KDE_PCs, self.X_KDE_samples_PC_space, self.X_KDE_v, 'Normalized Current', 'Probability Density')
-            
+    '''        
     def create_diff(self, norm=True):
         #this function calculates the numerical derivative of each curve (column) and creates a new matrix
         
@@ -162,13 +162,13 @@ class data_2_cluster(object):
         if norm:
             data = self.X_norm
         else:
-            data = self.X
+        #    data = self.X
         
-        data_diff = []
-        for column in data.T:
+        #data_diff = []
+        #for column in data.T:
             #calculate the derivative for each curve (column)
-            smooth_xnew, f(smooth_xnew), filtered[:,0], filtered[:,1], xd, dydx = diff(self.voltages_a, data, frc=0.1, itt=2)
-            data_diff.append(filtered[:,1])
+            #smooth_xnew, f(smooth_xnew), filtered[:,0], filtered[:,1], xd, dydx = diff(self.voltages_a, data, frc=0.1, itt=2)
+            #data_diff.append(filtered[:,1])
         
         data_diff = np.transpose(np.array(data_diff)) #convert to a numpy array
         
@@ -177,8 +177,8 @@ class data_2_cluster(object):
         else:
             self.X = data_diff
         
-        self.voltages_diff = filtered[:,0]                                                      
-        
+        #self.voltages_diff = filtered[:,0]                                                      
+       '''
     def pca(self, shiftData=False):
         #this function calculaation the principal components of the data
         
@@ -280,3 +280,19 @@ class data_2_cluster(object):
         print('Finished computing the histogram and KDE\n')
         print('Range:')
         print([np.min(data),np.max(data)])
+        
+
+class merge_data(object):
+    def __init__(self, data_sets):
+        
+        self.X_merged=False
+        self.X_norm_merged=False
+        former_X_set = data_sets[0].X
+        former_Xnorm_set = data_sets[0].X_norm
+        for data_set in data_sets:
+            if self.X_merged == False:
+                self.X_merged = former_X_set
+                self.X_norm_merged = former_Xnorm_set
+            else:
+                self.X_merged = np.append(self.X_merged, data_set.X)
+                self.X_norm_merged = np.append(self.X_norm_merged, data_set.X_norm)
