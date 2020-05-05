@@ -11,6 +11,7 @@ import matplotlib.ticker as ticker
 import matplotlib.colors as colors
 from scipy.stats import zscore
 import os
+import copy
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KernelDensity
@@ -83,7 +84,8 @@ class data_2_cluster(object):
                     if os.path.splitext(file)[1] == '.txt':
                         print('Working On: \n')
                         print(os.path.join(root,file) + '\n')
-                        print(str(n+1) + ' Out of: ' + str(len(files)))
+                        files_legnth = str(len(files))
+                        print(str(n+1) + ' Out of: ' + files_legnth)
                         df = pd.read_csv(os.path.join(root,file) , skiprows=16, names=heads, sep=' ')
                         self.X_force.append(np.array(df["Vertical Deflection [N]"]))
                         self.X_position.append(np.array(df["Head Height (measured & smoothed) [m]"]))
@@ -95,15 +97,24 @@ class data_2_cluster(object):
             #Callibrating the position such that all the samples will "talk in the same language"
             self.x_modified = np.linspace(0 , 200e-9, 851)
             
-            self.X_position_modified = self.X_position
+            sns.set_palette(sns.color_palette("coolwarm", 1733), 1733)
+            self.X_position_modified = copy.deepcopy(self.X_position) #use deep copy to create a separate calss instance
+            self.X_ofInterest = []
             j=1
+            self.X_force.tolist()
             for column in self.X_position_modified.T:
-                print('working on column ' + str(j))
-                j+=1
+                print('Callibrating sample number ' + str(j) + ' Out of: ' + files_legnth)
                 f = interp1d(column[0:1100], column[0:1100]) #linear interpolate the position upon itself
                 for i in self.x_modified: 
                     interp_value = f(i) #check the interpolated value
-                    column[find_nearest(column, interp_value)] = interp_value #replace the value of the nearest value to the interp value
+                    idx = find_nearest(column, interp_value) #get the index of the neasrest value to the common position
+                    column[idx] = interp_value #replace the value of the nearest value to the interp value
+                idx = find_nearest(column, 0)
+                self.X_ofInterest.append(self.X_force[idx : (idx+851) , j-1 ])
+                j+=1
+            #convert the list to a numpy array
+            self.X_ofInterest = np.transpose(np.array(self.X_ofInterest))
+            self.X_force = np.array(self.X_force)
             
             print('New data_2_cluster object created\n=================================\n')
             print('Object dimensions:\n')
