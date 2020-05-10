@@ -8,7 +8,6 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import matplotlib.colors as colors
 from scipy.stats import zscore
 import os
 import copy
@@ -72,8 +71,10 @@ class data_2_cluster(object):
             # a function to find the index of the element in an array with the nearest value to a value
             def find_nearest(array, value):
                 array = np.asarray(array)
-                idx = (np.abs(array - value)).argmin()
-                return idx
+                arr_diff = (np.abs(array - value))
+                idx = arr_diff.argmin()
+                err = np.amin(arr_diff)
+                return idx, err
             
             n=0
             heads = ["Vertical Tip Position [m]", "Vertical Deflection [N]", "Height [m]", "Error Signal [V]", "Head Height [m]", "Head Height (measured & smoothed) [m]", "Head Height (measured) [m]", "Height (measured & smoothed) [m]", "Height (measured) [m]", "Lateral Deflection [m]", "Series Time [m]", "Segment Time [m]"]
@@ -95,26 +96,42 @@ class data_2_cluster(object):
             self.X_position = np.transpose(np.array(self.X_position))
             
             #Callibrating the position such that all the samples will "talk in the same language"
-            self.x_modified = np.linspace(0 , 200e-9, 851)
+            steps = 550
+            self.x_modified = np.linspace(0 , 200e-9, steps)
             
-            sns.set_palette(sns.color_palette("coolwarm", 1733), 1733)
-            self.X_position_modified = copy.deepcopy(self.X_position) #use deep copy to create a separate calss instance
+            
+            self.X_position_modified = [] 
             self.X_ofInterest = []
+            self.X_position_diff = []
             j=1
             self.X_force.tolist()
-            for column in self.X_position_modified.T:
+            for column in self.X_position.T: # for each measurment
                 print('Callibrating sample number ' + str(j) + ' Out of: ' + files_legnth)
-                f = interp1d(column[0:1100], column[0:1100]) #linear interpolate the position upon itself
-                for i in self.x_modified: 
-                    interp_value = f(i) #check the interpolated value
-                    idx = find_nearest(column, interp_value) #get the index of the neasrest value to the common position
-                    column[idx] = interp_value #replace the value of the nearest value to the interp value
-                idx = find_nearest(column, 0)
-                self.X_ofInterest.append(self.X_force[idx : (idx+851) , j-1 ])
+               
+                idx_0, err_0 = find_nearest(column, 0) #get the index of the neasrest value to zero
+                self.X_ofInterest.append(self.X_force[idx_0 : (idx_0+steps) , j-1 ])
+                self.X_position_modified.append(column[idx_0 : (idx_0+steps)])
+                self.X_position_diff.append( np.diff(column[idx_0 : idx_0+steps]) ) 
+                
                 j+=1
             #convert the list to a numpy array
             self.X_ofInterest = np.transpose(np.array(self.X_ofInterest))
+            self.X_position_modified = np.transpose(np.array(self.X_position_modified))
+            self.X_position_diff = np.transpose(np.array(self.X_position_diff))
             self.X_force = np.array(self.X_force)
+            
+            #set the common positions according to the mean of the diffrences
+            self.x_modified = np.zeros(steps)
+            self.x_modified[0] = 0
+            prev = 0
+            for k in range(1,steps):
+                self.x_modified[k] = prev + np.mean(self.X_position_diff[k-1,:])
+                prev = self.x_modified[k]
+            
+            #compute the error of the common positions, add update them accordingly
+            self.x_modified_err = np.abs(self.X_position_modified - self.x_modified.reshape( len(self.x_modified),1) )
+            err_mean = np.mean(self.x_modified_err, axis=1)
+            self.x_modified = self.x_modified - err_mean
             
             print('New data_2_cluster object created\n=================================\n')
             print('Object dimensions:\n')
@@ -123,6 +140,19 @@ class data_2_cluster(object):
                 
     def plot(self):
         #This function plots the object attributes according to the user selection
+        
+        def setupPalette(count, pal=None):
+            # See http://xkcd.com/color/rgb/. These were chosen to be different "enough".
+            colors = ['windows blue' , 'amber' , 'faded green' , 'dusty purple' , 'pale red',
+                      'grass green', 'dirty pink', 'azure', 'tangerine', 'strawberry',
+                      'yellowish green', 'gold', 'sea blue', 'lavender', 'orange brown', 'turquoise',
+                      'royal blue', 'cranberry', 'pea green', 'vermillion', 'sandy yellow', 'greyish brown',
+                      'magenta', 'silver', 'ivory', 'carolina blue', 'very light brown']
+        
+            palette = sns.color_palette(palette=pal, n_colors=count) if pal else sns.xkcd_palette(colors)
+            sns.set_palette(palette, n_colors=count)
+
+        setupPalette(20)
         
         def plot_pca(xd, PC_count, PCs, samples_PC_space, v, xlabel, ylabel):
             ax1 = plt.subplot2grid((2,1), (0,0))
@@ -139,7 +169,7 @@ class data_2_cluster(object):
                 ax1.set_title('PCA Results - ' + self.name + ' data') 
                 plt.tight_layout()
         
-        selections = input('What would you like to plot?\nChoose from: X,X_norm,X_shifted,X_histograms,PCA\n')
+        selections = input('What would you like to plot?\nChoose from: X,X_norm,X_shifted,X_histograms,force_Curves,PCA\n')
         selections = selections.split(',')
         if 'X' in selections:
             plt.figure(1)
@@ -185,8 +215,15 @@ class data_2_cluster(object):
                 ax3.set_yticks([])
             f.suptitle('Data Histograms & KDE - ' + self.name, y=0.98)
             f.subplots_adjust(wspace=None, hspace=None, top=0.92)
+        if 'force_Curves' in selections:
+            [M,N] = self.X_ofInterest.shape
+            sns.set_palette(sns.color_palette("coolwarm", N), N)
+            for column in self.X_ofInterest.T:
+                plt.plot(self.x_modified, column)
+            plt.xlim(self.x_modified[0],self.x_modified[-1])
+            plt.title('All Force Curves')
         if 'PCA' in selections:
-            typ = input('Which PCA would you like to plot?\nChoose from: data, data_norm, data_histograms, data_KDE\n')
+            typ = input('Which PCA would you like to plot?\nChoose from: data, data_norm, data_histograms, data_KDE, data_AFM\n')
             typ = typ.split(',')
             PC_count = input('How many PCs would you like to plot?\n')
             PC_count = int(PC_count)
@@ -199,6 +236,8 @@ class data_2_cluster(object):
                 plot_pca(self.bins, PC_count, self.X_hist_PCs, self.X_hist_samples_PC_space, self.X_hist_v, 'Normalized Current', 'Probability Density')
             if 'data_KDE' in typ:
                 plot_pca(self.bins_KDE, PC_count, self.X_KDE_PCs, self.X_KDE_samples_PC_space, self.X_KDE_v, 'Normalized Current', 'Probability Density')
+            if 'data_AFM' in typ:
+                plot_pca(self.x_modified,PC_count, self.X_AFM_PCs, self.X_AFM_samples_PC_space, self.X_AFM_v, 'Position [m]', 'Force')
     '''        
     def create_diff(self, norm=True):
         #this function calculates the numerical derivative of each curve (column) and creates a new matrix
@@ -238,7 +277,7 @@ class data_2_cluster(object):
     def pca(self, shiftData=False):
         #this function calculaation the principal components of the data
         
-        typ = input('Which data would you like to calculate PCA for?\nChoose from: data,data_norm,data_histograms,data_KDE\n')
+        typ = input('Which data would you like to calculate PCA for?\nChoose from: data,data_norm,data_histograms,data_KDE,data_forceCurves\n')
         
         if typ == 'data_norm':
             data = self.X_norm
@@ -248,6 +287,8 @@ class data_2_cluster(object):
             data = self.X_hist
         if typ == 'data_KDE':
             data =self.X_KDE
+        if typ == 'data_forceCurves':
+            data = self.X_ofInterest
         
         [M,N] = data.shape
         #If needed, substract the mean of each dimension (=sample type)
@@ -263,6 +304,9 @@ class data_2_cluster(object):
         else: #if there are not rows of zero, than there will be no dividing by zero
             data_covariance = np.corrcoef(data)
             print('Used correlation matrix\n')
+        if typ == 'data_forceCurves':
+            data_covariance = np.cov(data)
+            print('Used covariance matrix\n')
         #find the eigenvalues and eigenvectors
         #(using np.linalg.eigh function which assumes a real and symettric matrix)
         [v,PCs] = np.linalg.eigh(data_covariance)
@@ -294,9 +338,15 @@ class data_2_cluster(object):
             self.X_KDE_v                = v
             self.X_KDE_PCs              = PCs
             self.X_KDE_samples_PC_space = samples_PC_space
+        if typ == 'data_forceCurves':
+            self.X_AFM_covariance       = data_covariance
+            self.X_AFM_v                = v
+            self.X_AFM_PCs              = PCs
+            self.X_AFM_samples_PC_space = samples_PC_space
+        
         print('Finished computing PCA\n========================\n')
         print('Variance of the first 5 principal components:\n')
-        print(v[0:4])
+        print(v[0:5])
     
     def create_hist(self, norm=True):
         #This function runs over each curve (column in the data)
