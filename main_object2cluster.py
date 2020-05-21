@@ -14,9 +14,10 @@ import copy
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KernelDensity
+from mpl_toolkits.mplot3d import Axes3D
 
 import seaborn as sns
-sns.set_context("talk")
+sns.set_context("paper")
 sns.set_style("white")
 
 class data_2_cluster(object):
@@ -435,10 +436,14 @@ class merge_data(object):
         
         def plot_pca(xd, PC_count, PCs, samples_PC_space, v, xlabel, ylabel, datas_lengths):
             ax1 = plt.subplot2grid((2,1), (0,0))
-            ax2 = plt.subplot2grid((2,1), (1,0))
+            
+            if PC_count==2:
+                ax2 = plt.subplot2grid((2,1), (1,0))
+            else:
+                ax2 = plt.subplot2grid((2,1), (1,0), projection='3d')
                 
             for n in range(PC_count):
-                ax1.plot(xd, PCs[:,n], label='PC #' + str(n+1), color='C'+str(n + len(datas_lengths)))
+                ax1.plot(xd, PCs[:,n], label='PC #' + str(n+1) + '( ' + str(round(v[n]*100,2)) + ' %)', color='C'+str(n + len(datas_lengths)))
                 ax1.set_xlabel(xlabel)
                 ax1.set_ylabel(ylabel)
                 ax1.legend(loc='upper right')
@@ -446,18 +451,25 @@ class merge_data(object):
             current_data = 0
             for length in range(len(datas_lengths)):
                 if length == 0:
-                    ax2.scatter(samples_PC_space[0,0:datas_lengths[0]], samples_PC_space[1,0:datas_lengths[0]] , edgecolors='k', alpha=0.1, color='C'+str(current_data ))
-                    print(str(0) + ',')
-                    print(str(datas_lengths[0]))
+                    if PC_count==2:
+                        ax2.scatter(samples_PC_space[0,0:datas_lengths[0]], samples_PC_space[1,0:datas_lengths[0]] , edgecolors='k', alpha=0.1, color='C'+str(current_data ))
+                    else:
+                        ax2.scatter(samples_PC_space[0,0:datas_lengths[0]], samples_PC_space[1,0:datas_lengths[0]] ,
+                                    samples_PC_space[2,0:datas_lengths[0]], edgecolors='k', alpha=0.1, color='C'+str(current_data ))
                 else:
-                    ax2.scatter(samples_PC_space[0,datas_lengths[length-1]:datas_lengths[length]], samples_PC_space[1,datas_lengths[length-1]:datas_lengths[length]] , edgecolors='k', alpha=0.2, color='C'+str(current_data ))
-                    print(str(datas_lengths[length-1]) + ',')
-                    print(str(datas_lengths[length]))
+                    if PC_count==2:
+                        ax2.scatter(samples_PC_space[0,datas_lengths[length-1]:datas_lengths[length]], samples_PC_space[1,datas_lengths[length-1]:datas_lengths[length]] , edgecolors='k', alpha=0.2, color='C'+str(current_data ))
+                    else:
+                        ax2.scatter(samples_PC_space[0,datas_lengths[length-1]:datas_lengths[length]], samples_PC_space[1,datas_lengths[length-1]:datas_lengths[length]] ,
+                                    samples_PC_space[2,datas_lengths[length-1]:datas_lengths[length]],edgecolors='k', alpha=0.2, color='C'+str(current_data ))
                 current_data+=1
-            ax2.set_xlabel('PC #1 (' + str(round(v[0]*100,2)) + ' %)')
-            ax2.set_ylabel('PC #2 (' + str(round(v[1]*100,2)) + ' %)')
+            ax2.set_xlabel('PC #1 (' + str(round(v[0]*100,2)) + ' %)', fontsize=11)
+            ax2.set_ylabel('PC #2 (' + str(round(v[1]*100,2)) + ' %)', fontsize=11)
             ax2.set_xlim([np.min(samples_PC_space[0,:]) , np.max(samples_PC_space[0,:])])
             ax2.set_ylim([np.min(samples_PC_space[1,:]) , np.max(samples_PC_space[1,:])])
+            if PC_count !=2:
+                ax2.set_zlabel('PC #3 (' + str(round(v[2]*100,2)) + ' %)', fontsize=11)
+                ax2.set_zlim([np.min(samples_PC_space[2,:]) , np.max(samples_PC_space[2,:])])
             ax1.set_title('PCA Results - ' + self.name + ' data') 
             plt.tight_layout()
         
