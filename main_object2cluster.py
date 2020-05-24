@@ -407,7 +407,16 @@ class merge_data(object):
                     self.X_AFM_merged = former_X_AFM
                 else:
                     self.X_AFM_merged = np.append(self.X_AFM_merged, data_set.X_ofInterest, axis=1)
-        
+        if typ == 'data_norm':
+            self.data_norm_merged = []
+            former_X_norm = data_sets[0].X_norm
+            for data_set in data_sets:
+                sets_lengths.append(data_set.X_norm.shape[1])
+                if len(self.data_norm_merged) == 0:
+                    self.data_norm_merged = former_X_norm
+                else: 
+                    self.data_norm_merged = np.append(self.data_norm_merged, data_set.X_norm, axis=1)
+                    
         #get the indexes of the merged data sets
         for i in range(len(sets_lengths)):
             if i==0:
@@ -500,7 +509,8 @@ class merge_data(object):
             plt.figure(5)
             if 'data_AFM' in typ:
                 plot_pca(self.all_objects[0].x_modified,PC_count, self.X_AFM_PCs, self.X_AFM_samples_PC_space, self.X_AFM_v, 'Position [m]', 'Force', self.datas_length)
-        
+            if 'data_norm' in typ:
+                plot_pca(self.all_objects[0].voltages_a,PC_count, self.X_norm_PCs, self.X_norm_samples_PC_space, self.X_norm_v, 'Voltage [V]', 'Current', self.datas_length)
 
     
     def pca(self, shiftData=False):
@@ -509,7 +519,7 @@ class merge_data(object):
         typ = input('Which data would you like to calculate PCA for?\nChoose from: data,data_norm,data_histograms,data_KDE,data_forceCurves\n')
         
         if typ == 'data_norm':
-            data = self.X_norm
+            data = self.data_norm_merged
         if typ == 'data':
             data = self.X
         if typ == 'data_histograms':
