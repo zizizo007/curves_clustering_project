@@ -15,6 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KernelDensity
 from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.colors as colors
 
 import seaborn as sns
 sns.set_context("paper")
@@ -586,3 +587,110 @@ class merge_data(object):
         print('Finished computing PCA\n========================\n')
         print('Variance of the first 5 principal components:\n')
         print(v[0:5])
+        
+class IV_realTime(object):
+    
+    def __init__(self, path):
+        
+        self.voltages = []    
+        for voltage in np.arange(-2,2.01,0.01):
+            self.voltages.append(round(voltage,2))
+        self.voltages = np.asarray(self.voltages)
+        heads = ['Time', 'Voltage', 'Current']
+        
+        self.name=''
+        
+        self.time = []
+        self.data = []
+        self.data_smoothed = []
+        n=0
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                if os.path.splitext(file)[1] == '.txt':
+                    files_legnth = str(len(files))
+                    print(str(n+1) + ' Out of: ' + files_legnth)
+                    df = pd.read_csv(os.path.join(root,file) , skiprows=3, names=heads, sep='\t')
+                    self.data.append(np.asarray(df['Current'])) 
+                    t = float(os.path.splitext(file)[0].split('_')[1])
+                    data_smoothed = lowess(np.asarray(df['Current']),self.voltages,  is_sorted=True, frac=0.2, it=2)
+                    self.data_smoothed.append(data_smoothed[:,1])
+                    self.time.append(t)
+                    n+=1
+        # convert the list to a numpy array
+        self.data = np.transpose(np.array(self.data))
+        self.data_smoothed = np.transpose(np.array(self.data_smoothed))
+        self.time = np.asarray(self.time)
+        self.time = np.sort(self.time)
+    def plot(self):
+        sns.set_context("talk")
+        def setupPalette(count, pal=None):
+            # See http://xkcd.com/color/rgb/. These were chosen to be different "enough".
+            colors = ['windows blue' , 'amber' , 'faded green' , 'dusty purple' , 'pale red',
+                      'grass green', 'dirty pink', 'azure', 'tangerine', 'strawberry',
+                      'yellowish green', 'gold', 'sea blue', 'lavender', 'orange brown', 'turquoise',
+                      'royal blue', 'cranberry', 'pea green', 'vermillion', 'sandy yellow', 'greyish brown',
+                      'magenta', 'silver', 'ivory', 'carolina blue', 'very light brown']
+        
+            palette = sns.color_palette(palette=pal, n_colors=count) if pal else sns.xkcd_palette(colors)
+            sns.set_palette(palette, n_colors=count)
+        
+        
+        selections = input('What would you like to plot?\nChoose from:\na) All IV Curves\nb) All IV Curves Smoothed\nc) I(t)\nd) 3D Plot\ne) I(V) at different times\n')
+        selections = selections.split(',')
+        
+        if 'a' in selections:
+            fig1 = plt.figure(1)
+            [M,N] = self.data.shape
+            sns.set_palette(sns.color_palette("coolwarm", N), N)
+            for column in self.data.T:
+                plt.plot(self.voltages, column)
+            plt.title('Data Curves (Raw) - ' + self.name)
+            plt.xlabel('Voltage [V]')
+            plt.ylabel('Current [A]')
+            plt.tight_layout()
+        if 'b' in selections:
+            fig2 = plt.figure(2)
+            [M,N] = self.data.shape
+            sns.set_palette(sns.color_palette("coolwarm", N), N)
+            for column in self.data_smoothed.T:
+                plt.plot(self.voltages, column)
+            plt.title('Data Curves (Raw) - ' + self.name)
+            plt.xlabel('Voltage [V]')
+            plt.ylabel('Current [A]')
+            plt.xlim([-2,2])
+            plt.tight_layout()
+        if 'c' in selections:
+            fig3 = plt.figure(3)
+            setupPalette(20)
+            voltage_t = input('Please insert the voltage(s) you wish to plot.\n')
+            for vol in voltage_t.split(','):
+                vol_f = float(vol)
+                plt.plot(np.divide(self.time,60), np.abs(np.multiply(self.data_smoothed[np.where(self.voltages==vol_f)[0][0],:], 1e6)), 'o', ms=1, label=vol +' [V]')
+            plt.title('I(t) ' + self.name)
+            plt.xlabel('Time [minutes]')
+            plt.ylabel('Absolut Current $[\mu A]$')
+            plt.legend()
+            plt.xlim([np.min(np.divide(self.time,60)),np.max(np.divide(self.time,60))])
+            plt.tight_layout()
+        if 'd' in selections:
+            fig4 = plt.figure(4)
+            X, Y = np.meshgrid(self.voltages,np.divide(self.time,60))
+            data_abs = np.abs(np.multiply(self.data_smoothed.T,1e6))
+            data_norm = np.divide(data_abs, np.max(data_abs))
+            plt.pcolormesh(X,Y, data_norm, cmap=plt.cm.plasma,shading='gouraud')
+            cbar = plt.colorbar(label = 'Absolut Current $[\mu A]$')
+            plt.xlabel('Voltage [V]', fontsize=16)
+            plt.ylabel('Time [min]')
+            plt.tight_layout()
+        if 'e' in selections:
+            fig5 = plt.figure(5)
+            times = input('Please specify the times you which to plot:\n')
+            for t in times.split(','):
+                t_float = float(t)
+                plt.plot(self.voltages, np.multiply(self.data_smoothed[:,np.where(self.time>t_float)[0][0]],1e6), label=t)
+            plt.title('I(V) @ Different Times ' + self.name)
+            plt.xlabel('Voltage [V]')
+            plt.ylabel('Current $[\mu A]$')
+            plt.legend()
+            plt.xlim([-2,2])
+            plt.tight_layout()
